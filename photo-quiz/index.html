@@ -69,11 +69,20 @@
     cursor: pointer; font-family: var(--sans);
   }
   .btn-primary:hover { filter: brightness(1.08); }
-  .btn-text {
-    display: block; margin: 14px auto 0; background: none; border: none; color: var(--ink-dim);
-    font-size: 0.78rem; text-decoration: underline; cursor: pointer; font-family: var(--sans);
-  }
   .error-msg { color: var(--wrong); font-size: 0.85rem; margin: -8px 0 12px; }
+
+  .leaderboard-card h2 { display: flex; align-items: center; gap: 6px; }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--correct);
+    box-shadow: 0 0 0 0 var(--correct-bg); animation: pulse 1.8s ease-out infinite;
+  }
+  .live-label { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); font-family: var(--sans); font-weight: 600; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(124, 177, 122, 0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(124, 177, 122, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(124, 177, 122, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 
   .leaderboard-list { list-style: none; margin: 0; padding: 0; counter-reset: rank; }
   .leaderboard-list li {
@@ -155,11 +164,10 @@
     </div>
 
     <div class="card leaderboard-card">
-      <h2>참가자 순위</h2>
+      <h2>참가자 순위 <span class="live-dot" aria-hidden="true"></span><span class="live-label">실시간</span></h2>
       <ol id="leaderboard-list" class="leaderboard-list">
         <li class="empty">아직 참가자가 없습니다. 첫 번째 참가자가 되어보세요!</li>
       </ol>
-      <button id="btn-reset-leaderboard" class="btn-text">순위판 초기화</button>
     </div>
   </section>
 
@@ -187,12 +195,12 @@
     </div>
 
     <div class="card leaderboard-card">
-      <h2>참가자 순위</h2>
+      <h2>참가자 순위 <span class="live-dot" aria-hidden="true"></span><span class="live-label">실시간</span></h2>
       <ol id="leaderboard-list-result" class="leaderboard-list"></ol>
     </div>
   </section>
 
 </div>
-<script src="quiz.js"></script>
+<script type="module" src="quiz.js"></script>
 </body>
 </html>
