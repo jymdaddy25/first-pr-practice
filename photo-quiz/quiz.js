@@ -1,0 +1,276 @@
+// 진짜 사진 찾기 퀴즈
+// 각 라운드: 실제 전시 사진 1장 + 편집(좌우반전/확대·색보정/회전·彩度조정)된 3장 중
+// 진짜를 5초 안에 고르는 게임. 점수 = 정답 개수 x 100 + 라운드별 시간 보너스.
+// 시간 보너스 = max(0, (10 - 답변까지 걸린 초) x 10), 정답을 맞혔을 때만 적용.
+
+const TIME_LIMIT = 5; // seconds per round
+const NEXT_DELAY = 1700; // ms pause after each answer before advancing
+
+const ROUNDS = [
+  {
+    title: "라운드 1",
+    meta: "원 그리기 퍼포먼스 4컷",
+    original: "assets/round1-original.jpg",
+    decoys: ["assets/round1-decoy1.jpg", "assets/round1-decoy2.jpg", "assets/round1-decoy3.jpg"],
+  },
+  {
+    title: "라운드 2",
+    meta: "얼굴·드로잉 3연작",
+    original: "assets/round2-original.jpg",
+    decoys: ["assets/round2-decoy1.jpg", "assets/round2-decoy2.jpg", "assets/round2-decoy3.jpg"],
+  },
+  {
+    title: "라운드 3",
+    meta: "Traum · Leben 설치",
+    original: "assets/round3-original.jpg",
+    decoys: ["assets/round3-decoy1.jpg", "assets/round3-decoy2.jpg", "assets/round3-decoy3.jpg"],
+  },
+  {
+    title: "라운드 4",
+    meta: "자본=창의력 걸개",
+    original: "assets/round4-original.jpg",
+    decoys: ["assets/round4-decoy1.jpg", "assets/round4-decoy2.jpg", "assets/round4-decoy3.jpg"],
+  },
+  {
+    title: "라운드 5",
+    meta: "벽시계 네 대",
+    original: "assets/round5-original.jpg",
+    decoys: ["assets/round5-decoy1.jpg", "assets/round5-decoy2.jpg", "assets/round5-decoy3.jpg"],
+  },
+];
+
+const LEADERBOARD_KEY = "photo-original-quiz-leaderboard";
+
+const state = {
+  playerName: "",
+  index: 0,
+  score: 0,
+  correctCount: 0,
+  order: [],
+  roundOptions: null,
+  answered: false,
+  startTime: 0,
+  timeoutHandle: null,
+};
+
+const screens = {
+  start: document.getElementById("screen-start"),
+  quiz: document.getElementById("screen-quiz"),
+  result: document.getElementById("screen-result"),
+};
+
+function showScreen(name) {
+  Object.values(screens).forEach((el) => el.classList.remove("active"));
+  screens[name].classList.add("active");
+}
+
+function loadLeaderboard() {
+  try {
+    const raw = localStorage.getItem(LEADERBOARD_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+function saveLeaderboard(entries) {
+  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
+}
+
+function renderLeaderboard(listEl) {
+  const entries = loadLeaderboard()
+    .slice()
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, 10);
+
+  listEl.innerHTML = "";
+  if (entries.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "아직 참가자가 없습니다. 첫 번째 참가자가 되어보세요!";
+    listEl.appendChild(li);
+    return;
+  }
+  for (const entry of entries) {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = entry.name;
+    const score = document.createElement("span");
+    score.textContent = `${entry.score}점`;
+    li.append(name, score);
+    listEl.appendChild(li);
+  }
+}
+
+function renderAllLeaderboards() {
+  renderLeaderboard(document.getElementById("leaderboard-list"));
+  renderLeaderboard(document.getElementById("leaderboard-list-result"));
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startQuiz() {
+  const input = document.getElementById("player-name");
+  const name = input.value.trim();
+  const errorEl = document.getElementById("start-error");
+  if (!name) {
+    errorEl.hidden = false;
+    input.focus();
+    return;
+  }
+  errorEl.hidden = true;
+  state.playerName = name;
+  state.index = 0;
+  state.score = 0;
+  state.correctCount = 0;
+  state.order = ROUNDS.map((_, i) => i);
+  showScreen("quiz");
+  renderRound();
+}
+
+function renderRound() {
+  const round = ROUNDS[state.order[state.index]];
+  state.roundOptions = shuffle([
+    { src: round.original, isOriginal: true },
+    { src: round.decoys[0], isOriginal: false },
+    { src: round.decoys[1], isOriginal: false },
+    { src: round.decoys[2], isOriginal: false },
+  ]);
+  state.answered = false;
+
+  document.getElementById("quiz-player").textContent = `참가자 ${state.playerName}`;
+  document.getElementById("quiz-progress").textContent = `${state.index + 1} / ${ROUNDS.length}`;
+  document.getElementById("quiz-score").textContent = `점수 ${state.score}`;
+  document.getElementById("question-text").textContent = `${round.title} · 진짜 사진은 어느 것일까요?`;
+  document.getElementById("feedback").textContent = "";
+  document.getElementById("feedback").className = "feedback";
+
+  const grid = document.getElementById("photo-grid");
+  grid.innerHTML = "";
+  const labels = ["A", "B", "C", "D"];
+  state.roundOptions.forEach((opt, i) => {
+    const btn = document.createElement("button");
+    btn.className = "photo-tile";
+    btn.innerHTML = `<span class="tag">${labels[i]}</span><img src="${opt.src}" alt="선택지 ${labels[i]}" />`;
+    btn.addEventListener("click", () => selectAnswer(i));
+    grid.appendChild(btn);
+  });
+
+  startTimer();
+}
+
+function startTimer() {
+  const fill = document.getElementById("timer-fill");
+  fill.classList.remove("running", "low");
+  fill.style.transition = "none";
+  fill.style.width = "100%";
+  // force reflow so the next width change animates
+  void fill.offsetWidth;
+
+  state.startTime = performance.now();
+  requestAnimationFrame(() => {
+    fill.classList.add("running");
+    fill.style.transition = `width ${TIME_LIMIT}s linear`;
+    fill.style.width = "0%";
+  });
+
+  setTimeout(() => fill.classList.add("low"), (TIME_LIMIT - 1.5) * 1000);
+
+  state.timeoutHandle = setTimeout(() => {
+    if (!state.answered) selectAnswer(-1);
+  }, TIME_LIMIT * 1000);
+}
+
+function selectAnswer(choiceIndex) {
+  if (state.answered) return;
+  state.answered = true;
+  clearTimeout(state.timeoutHandle);
+
+  const elapsed = Math.min(TIME_LIMIT, Math.max(0, (performance.now() - state.startTime) / 1000));
+  const correctIndex = state.roundOptions.findIndex((o) => o.isOriginal);
+  const isCorrect = choiceIndex === correctIndex;
+
+  const tiles = document.querySelectorAll("#photo-grid .photo-tile");
+  tiles.forEach((tile, i) => {
+    tile.disabled = true;
+    if (i === correctIndex) tile.classList.add("correct");
+    else if (i === choiceIndex) tile.classList.add("wrong");
+    else tile.classList.add("dim");
+  });
+
+  const feedbackEl = document.getElementById("feedback");
+  let roundScore = 0;
+
+  if (isCorrect) {
+    const bonus = Math.max(0, Math.round((10 - elapsed) * 10));
+    roundScore = 100 + bonus;
+    state.correctCount += 1;
+    feedbackEl.className = "feedback correct";
+    feedbackEl.innerHTML = `정답입니다!<span class="points">기본 100점 + 시간 보너스 ${bonus}점 = +${roundScore}점</span>`;
+  } else {
+    roundScore = 0;
+    feedbackEl.className = "feedback wrong";
+    feedbackEl.innerHTML =
+      choiceIndex === -1
+        ? `시간 초과! 진짜 사진은 초록 테두리입니다<span class="points">+0점</span>`
+        : `아쉬워요, 편집된 사진이었어요<span class="points">+0점</span>`;
+  }
+
+  state.score += roundScore;
+  document.getElementById("quiz-score").textContent = `점수 ${state.score}`;
+
+  setTimeout(goNext, NEXT_DELAY);
+}
+
+function goNext() {
+  state.index += 1;
+  if (state.index >= ROUNDS.length) finishQuiz();
+  else renderRound();
+}
+
+function finishQuiz() {
+  const entries = loadLeaderboard();
+  entries.push({
+    name: state.playerName,
+    score: state.score,
+    correct: state.correctCount,
+    at: Date.now(),
+  });
+  saveLeaderboard(entries);
+
+  document.getElementById("result-headline").textContent = `${state.playerName}님, 수고하셨어요!`;
+  document.getElementById("result-score").textContent = `${state.score}점`;
+  document.getElementById("result-detail").textContent =
+    state.correctCount === ROUNDS.length
+      ? `${ROUNDS.length}문제를 모두 맞혔어요! 진짜 사진 감별사네요.`
+      : `${ROUNDS.length}문제 중 ${state.correctCount}문제 정답. 다음 참가자에게 자리를 넘겨주세요.`;
+
+  renderAllLeaderboards();
+  showScreen("result");
+}
+
+function resetLeaderboard() {
+  if (!confirm("참가자 순위판을 초기화할까요?")) return;
+  saveLeaderboard([]);
+  renderAllLeaderboards();
+}
+
+document.getElementById("btn-start").addEventListener("click", startQuiz);
+document.getElementById("player-name").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") startQuiz();
+});
+document.getElementById("btn-again").addEventListener("click", () => {
+  document.getElementById("player-name").value = "";
+  showScreen("start");
+  renderAllLeaderboards();
+  document.getElementById("player-name").focus();
+});
+document.getElementById("btn-reset-leaderboard").addEventListener("click", resetLeaderboard);
+
+renderAllLeaderboards();
