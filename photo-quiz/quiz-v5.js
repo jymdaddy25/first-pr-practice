@@ -79,7 +79,7 @@ function entriesFromRestData(data) {
   if (!data) return [];
   const entries = Object.values(data);
   entries.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  return entries.slice(0, 10);
+  return entries;
 }
 
 async function initLeaderboard() {
