@@ -377,7 +377,20 @@ document.getElementById("btn-again").addEventListener("click", () => {
 });
 document.getElementById("btn-reset-leaderboard").addEventListener("click", resetLeaderboard);
 document.querySelectorAll(".btn-refresh-leaderboard").forEach((btn) => {
-  btn.addEventListener("click", refreshLeaderboard);
+  const label = btn.textContent;
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "새로고침 중…";
+    try {
+      await refreshLeaderboard();
+      btn.textContent = "새로고침 완료";
+    } finally {
+      setTimeout(() => {
+        btn.textContent = label;
+        btn.disabled = false;
+      }, 900);
+    }
+  });
 });
 
 document.addEventListener("visibilitychange", () => {
