@@ -69,6 +69,10 @@
     cursor: pointer; font-family: var(--sans);
   }
   .btn-primary:hover { filter: brightness(1.08); }
+  .btn-text {
+    display: block; margin: 14px auto 0; background: none; border: none; color: var(--ink-dim);
+    font-size: 0.78rem; text-decoration: underline; cursor: pointer; font-family: var(--sans);
+  }
   .error-msg { color: var(--wrong); font-size: 0.85rem; margin: -8px 0 12px; }
 
   .leaderboard-card h2 { display: flex; align-items: center; gap: 6px; }
@@ -168,6 +172,7 @@
       <ol id="leaderboard-list" class="leaderboard-list">
         <li class="empty">아직 참가자가 없습니다. 첫 번째 참가자가 되어보세요!</li>
       </ol>
+      <button id="btn-reset-leaderboard" class="btn-text">순위판 초기화</button>
     </div>
   </section>
 
