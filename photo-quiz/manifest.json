@@ -1,0 +1,15 @@
+{
+  "name": "진짜 사진 찾기 · 그룹 퀴즈",
+  "short_name": "사진찾기",
+  "description": "전시에서 찍은 진짜 사진을 찾는 그룹 퀴즈",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12141a",
+  "theme_color": "#3f7d6c",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
