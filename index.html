@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>개념미술 감상 퀴즈 · 그룹 투어</title>
+<style>
+  :root {
+    --bg: #12141a;
+    --bg-2: #1b1e26;
+    --plate: #191c23;
+    --panel: #1b1e26;
+    --panel-border: #2c303c;
+    --grid-line: rgba(111, 168, 154, 0.08);
+    --ink: #ece7db;
+    --ink-dim: #9b9aa5;
+    --accent: #6fa89a;
+    --accent-strong: #9bcabc;
+    --accent-ink: #0c1512;
+    --correct: #7cb17a;
+    --correct-bg: rgba(124, 177, 122, 0.14);
+    --wrong: #d9705f;
+    --wrong-bg: rgba(217, 112, 95, 0.14);
+    --radius: 3px;
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Noto Serif KR", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #eef0ea;
+      --bg-2: #f7f8f4;
+      --plate: #ffffff;
+      --panel: #ffffff;
+      --panel-border: #d7dcd2;
+      --grid-line: rgba(63, 125, 108, 0.10);
+      --ink: #1c211d;
+      --ink-dim: #5c6459;
+      --accent: #3f7d6c;
+      --accent-strong: #2c5c4f;
+      --accent-ink: #f6faf7;
+      --correct: #3f7d3f;
+      --correct-bg: rgba(63, 125, 63, 0.10);
+      --wrong: #b1493a;
+      --wrong-bg: rgba(177, 73, 58, 0.10);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  .app { max-width: 620px; margin: 0 auto; padding: 40px 20px 72px; }
+
+  .masthead { text-align: center; margin-bottom: 34px; }
+  .kicker {
+    display: inline-block; font-family: var(--sans); font-size: 0.72rem;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-strong);
+    border: 1px solid var(--panel-border); border-radius: 999px; padding: 4px 12px;
+    margin-bottom: 14px;
+  }
+  .masthead h1 {
+    font-family: var(--serif); font-weight: 400; font-size: 2rem; margin: 0 0 8px;
+    letter-spacing: -0.01em; text-wrap: balance;
+  }
+  .masthead .rule { width: 48px; height: 1px; background: var(--panel-border); margin: 14px auto; }
+  .masthead p { color: var(--ink-dim); font-size: 0.95rem; margin: 0; line-height: 1.5; }
+
+  .screen { display: none; }
+  .screen.active { display: block; animation: fade-in 0.3s ease; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .screen.active { animation: none; } }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: var(--radius); padding: 26px; margin-bottom: 18px;
+  }
+  .card h2 {
+    font-family: var(--serif); font-weight: 400; font-size: 1.25rem; margin: 0 0 10px;
+  }
+  .card > p { color: var(--ink-dim); line-height: 1.6; font-size: 0.92rem; }
+
+  label {
+    display: block; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-dim); margin-bottom: 8px;
+  }
+  input[type="text"] {
+    width: 100%; padding: 12px 14px; border-radius: var(--radius);
+    border: 1px solid var(--panel-border); background: var(--bg-2); color: var(--ink);
+    font-size: 1rem; font-family: var(--sans); margin-bottom: 16px;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn-primary {
+    width: 100%; padding: 13px 16px; border: 1px solid var(--accent); border-radius: var(--radius);
+    background: var(--accent); color: var(--accent-ink); font-size: 0.95rem; font-weight: 600;
+    letter-spacing: 0.01em; cursor: pointer; font-family: var(--sans);
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-text {
+    display: block; margin: 14px auto 0; background: none; border: none;
+    color: var(--ink-dim); font-size: 0.78rem; text-decoration: underline; cursor: pointer;
+    font-family: var(--sans);
+  }
+
+  .error-msg { color: var(--wrong); font-size: 0.85rem; margin: -8px 0 12px; }
+
+  .leaderboard-list { list-style: none; margin: 0; padding: 0; counter-reset: rank; }
+  .leaderboard-list li {
+    counter-increment: rank; display: flex; justify-content: space-between; align-items: baseline;
+    padding: 10px 0; border-bottom: 1px solid var(--panel-border); font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .leaderboard-list li:last-child { border-bottom: none; }
+  .leaderboard-list li::before {
+    content: counter(rank); font-family: var(--serif); color: var(--accent-strong);
+    font-size: 0.85rem; margin-right: 10px; min-width: 1.2em;
+  }
+  .leaderboard-list li.empty { color: var(--ink-dim); font-size: 0.86rem; }
+  .leaderboard-list li.empty::before { content: ""; margin: 0; }
+
+  .quiz-meta {
+    display: flex; justify-content: space-between; font-size: 0.78rem; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--ink-dim); margin-bottom: 12px; padding: 0 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .plate-frame { position: relative; padding: 12px; margin-bottom: 14px; }
+  .corner { position: absolute; width: 14px; height: 14px; border: 2px solid var(--accent); }
+  .corner.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+  .corner.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+  .corner.bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+  .corner.br { bottom: 0; right: 0; border-left: none; border-top: none; }
+
+  .artwork-visual {
+    height: 190px; border-radius: 2px; background-color: var(--plate);
+    background-image:
+      repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 24px),
+      repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 24px);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .artwork-visual svg { width: 76px; height: 76px; color: var(--accent); }
+
+  .artwork-caption {
+    display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap;
+    gap: 4px 12px; padding: 2px 4px;
+  }
+  .artwork-caption strong { font-family: var(--serif); font-size: 1.05rem; font-weight: 400; }
+  .artwork-caption span { font-size: 0.78rem; color: var(--ink-dim); letter-spacing: 0.02em; }
+
+  #question-text { font-family: var(--serif); font-size: 1.12rem; line-height: 1.4; margin-bottom: 18px; text-wrap: balance; }
+
+  .options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .option {
+    text-align: left; padding: 13px 14px; border-radius: var(--radius);
+    border: 1px solid var(--panel-border); background: transparent; color: var(--ink);
+    font-size: 0.94rem; font-family: var(--sans); cursor: pointer;
+  }
+  .option:hover:not(:disabled) { border-color: var(--accent); }
+  .option:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .option:disabled { cursor: default; }
+  .option.correct { border-color: var(--correct); background: var(--correct-bg); }
+  .option.wrong { border-color: var(--wrong); background: var(--wrong-bg); }
+
+  .explanation {
+    background: var(--bg-2); border-left: 2px solid var(--accent); padding: 12px 14px;
+    border-radius: 2px; font-size: 0.88rem; line-height: 1.6; color: var(--ink-dim); margin-bottom: 16px;
+  }
+
+  .result-card { text-align: center; }
+  .result-card h2 { font-size: 1.5rem; }
+
+  @media (max-width: 420px) {
+    .masthead h1 { font-size: 1.6rem; }
+    .card { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="masthead">
+    <span class="kicker">셀프 가이드 그룹 투어</span>
+    <h1>개념미술 감상 퀴즈</h1>
+    <div class="rule"></div>
+    <p>작품을 감상하고, 함께 모여 퀴즈를 풀어보세요</p>
+  </header>
+
+  <section id="screen-start" class="screen active">
+    <div class="card">
+      <h2>참가 준비</h2>
+      <p>한 명씩 이름을 입력하고 퀴즈를 시작하세요. 결과는 아래 참가자 순위판에 함께 기록됩니다.</p>
+      <label for="player-name">참가자 이름</label>
+      <input id="player-name" type="text" maxlength="12" placeholder="예: 지현" />
+      <button id="btn-start" class="btn-primary">퀴즈 시작</button>
+      <p id="start-error" class="error-msg" hidden>이름을 입력해주세요.</p>
+    </div>
+
+    <div class="card leaderboard-card">
+      <h2>참가자 순위</h2>
+      <ol id="leaderboard-list" class="leaderboard-list">
+        <li class="empty">아직 참가자가 없습니다. 첫 번째 참가자가 되어보세요!</li>
+      </ol>
+      <button id="btn-reset-leaderboard" class="btn-text">순위판 초기화</button>
+    </div>
+  </section>
+
+  <section id="screen-quiz" class="screen">
+    <div class="quiz-meta">
+      <span id="quiz-player"></span>
+      <span id="quiz-progress"></span>
+      <span id="quiz-score"></span>
+    </div>
+
+    <div class="card artwork-card">
+      <div class="plate-frame">
+        <span class="corner tl"></span><span class="corner tr"></span>
+        <span class="corner bl"></span><span class="corner br"></span>
+        <div id="artwork-visual" class="artwork-visual"></div>
+      </div>
+      <div class="artwork-caption">
+        <strong id="artwork-title"></strong>
+        <span id="artwork-meta"></span>
+      </div>
+    </div>
+
+    <div class="card question-card">
+      <h2 id="question-text"></h2>
+      <div id="options" class="options"></div>
+      <p id="explanation" class="explanation" hidden></p>
+      <button id="btn-next" class="btn-primary" hidden>다음 작품</button>
+    </div>
+  </section>
+
+  <section id="screen-result" class="screen">
+    <div class="card result-card">
+      <h2 id="result-headline"></h2>
+      <p id="result-detail"></p>
+      <button id="btn-again" class="btn-primary">다음 참가자 시작</button>
+    </div>
+
+    <div class="card leaderboard-card">
+      <h2>참가자 순위</h2>
+      <ol id="leaderboard-list-result" class="leaderboard-list"></ol>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const ICONS = {
+    fountain:
+      '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><polygon points="22,8 42,8 47,32 36,52 28,52 17,32"/><circle cx="32" cy="52" r="2.5" fill="currentColor" stroke="none"/></svg>',
+    chairs:
+      '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M8 30 v22 M8 30 h12 v10 M8 40 h12 M20 30 v-8"/><rect x="27" y="18" width="12" height="14" rx="1"/><circle cx="33" cy="14" r="3"/><line x1="48" y1="18" x2="60" y2="18"/><line x1="48" y1="26" x2="60" y2="26"/><line x1="48" y1="34" x2="56" y2="34"/></svg>',
+    wall:
+      '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="58" y2="30"/><line x1="6" y1="20" x2="58" y2="6"/><line x1="6" y1="58" x2="58" y2="34"/><line x1="6" y1="44" x2="58" y2="58"/><line x1="32" y1="6" x2="32" y2="58"/></svg>',
+    scissors:
+      '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="14" cy="16" r="7"/><circle cx="14" cy="48" r="7"/><line x1="19" y1="21" x2="54" y2="58"/><line x1="19" y1="43" x2="54" y2="6"/></svg>',
+    calendar:
+      '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="8" y="12" width="48" height="44" rx="2"/><line x1="8" y1="24" x2="56" y2="24"/><line x1="20" y1="6" x2="20" y2="18"/><line x1="44" y1="6" x2="44" y2="18"/><line x1="18" y1="36" x2="34" y2="36"/><line x1="18" y1="46" x2="46" y2="46"/></svg>',
+    candy:
+      '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="40" r="7"/><circle cx="34" cy="46" r="9"/><circle cx="46" cy="34" r="6"/><circle cx="28" cy="28" r="5"/><circle cx="42" cy="20" r="4"/></svg>',
+    leap:
+      '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="40" cy="12" r="5"/><line x1="37" y1="17" x2="20" y2="34"/><line x1="20" y1="34" x2="8" y2="26"/><line x1="20" y1="34" x2="28" y2="20"/><line x1="20" y1="34" x2="16" y2="54"/><line x1="20" y1="34" x2="34" y2="46"/></svg>',
+    pipe:
+      '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M14 26 h20 a10 10 0 0 1 10 10 v6"/><circle cx="14" cy="26" r="8"/><line x1="44" y1="42" x2="44" y2="52"/><line x1="10" y1="52" x2="54" y2="52" stroke-dasharray="2 4"/></svg>',
+  };
+
+  const ARTWORKS = [
+    {
+      title: "샘 (Fountain)",
+      meta: "마르셀 뒤샹 · 1917",
+      icon: ICONS.fountain,
+      question: "이 작품을 통해 뒤샹이 던진 질문은 무엇이었을까요?",
+      options: [
+        "기성품(레디메이드)도 예술이 될 수 있는가",
+        "조각은 대리석으로만 만들어야 하는가",
+        "그림은 액자가 있어야 완성되는가",
+        "미술관 입장료는 얼마가 적당한가",
+      ],
+      answer: 0,
+      explanation:
+        "뒤샹은 평범한 남성용 소변기에 'R. Mutt'라고 서명해 전시함으로써, 예술을 결정하는 것이 손의 기술이 아니라 '작가의 선택과 개념'일 수 있음을 보여주었습니다. 이는 개념미술의 출발점으로 평가받습니다.",
+    },
+    {
+      title: "하나이면서 셋인 의자",
+      meta: "조셉 코수스 · 1965",
+      icon: ICONS.chairs,
+      question: "이 작품이 나란히 제시한 세 가지는 무엇이었을까요?",
+      options: [
+        "의자의 색, 무게, 가격표",
+        "실제 의자, 의자 사진, '의자'의 사전적 정의",
+        "과거·현재·미래의 의자",
+        "나무, 플라스틱, 금속 의자 세 종류",
+      ],
+      answer: 1,
+      explanation:
+        "코수스는 실물 의자, 그 의자를 찍은 사진, 사전에서 발췌한 '의자'라는 단어의 정의를 함께 전시했습니다. 이를 통해 사물·이미지·언어가 각기 다른 방식으로 '실재'를 재현한다는 점을 탐구했습니다.",
+    },
+    {
+      title: "월 드로잉 연작",
+      meta: "솔 르윗 · 1968년부터",
+      icon: ICONS.wall,
+      question: "솔 르윗이 남긴 개념미술 선언의 핵심 문장은 무엇일까요?",
+      options: [
+        '"색채가 형태보다 중요하다"',
+        '"아이디어 자체가 예술을 만드는 기계가 된다"',
+        '"자연을 있는 그대로 모방해야 한다"',
+        '"완성작만이 예술로 인정받는다"',
+      ],
+      answer: 1,
+      explanation:
+        "르윗은 1967년 글 'Paragraphs on Conceptual Art'에서 \"개념미술에서는 아이디어나 콘셉트가 작품의 가장 중요한 측면이다\"라고 선언했습니다. 그의 월 드로잉은 작가 본인이 아닌 다른 사람이 지시서(instruction)에 따라 그려도 원작으로 인정됩니다.",
+    },
+    {
+      title: "컷 피스 (Cut Piece)",
+      meta: "오노 요코 · 1964",
+      icon: ICONS.scissors,
+      question: "이 퍼포먼스에서 관객에게 주어진 역할은 무엇이었나요?",
+      options: [
+        "무대 위 작가에게 질문을 던진다",
+        "가위로 작가가 입은 옷을 직접 잘라간다",
+        "함께 노래를 부른다",
+        "작가 대신 즉흥 연설을 한다",
+      ],
+      answer: 1,
+      explanation:
+        "오노 요코는 무대 위에 정좌한 채, 관객이 가위를 들고 나와 자신의 옷을 원하는 만큼 잘라가도록 했습니다. 작품의 완성은 작가 혼자가 아니라 관객의 참여로 매번 다르게 이루어졌습니다.",
+    },
+    {
+      title: "오늘 연작 (Today Series)",
+      meta: "온 가와라 · 1966년부터",
+      icon: ICONS.calendar,
+      question: "이 연작의 독특한 제작 규칙은 무엇이었을까요?",
+      options: [
+        "매일 다른 색으로 캔버스를 칠한다",
+        "그날 자정까지 완성하지 못하면 그 그림은 폐기한다",
+        "관객이 직접 날짜를 손으로 적는다",
+        "1년에 한 작품만 제작한다",
+      ],
+      answer: 1,
+      explanation:
+        "온 가와라는 캔버스에 그날의 날짜만을 정해진 서체로 그렸고, 자정까지 완성하지 못하면 그 작품을 폐기하는 엄격한 규칙을 따랐습니다. 시간과 존재를 기록하는 행위 자체가 작품의 핵심 개념이었습니다.",
+    },
+    {
+      title: "무제 (로스의 초상)",
+      meta: "펠릭스 곤잘레스-토레스 · 1991",
+      icon: ICONS.candy,
+      question: "이 작품에서 관객에게 허용된 특별한 행동은 무엇이었나요?",
+      options: [
+        "사탕 더미에서 사탕을 가져가도 된다",
+        "사탕 더미를 만지면 안 된다",
+        "사진 촬영이 전면 금지된다",
+        "사탕을 새로 채워 넣어야 한다",
+      ],
+      answer: 0,
+      explanation:
+        "이상적인 총 무게(연인 로스의 건강한 체중, 약 79kg)만큼 쌓인 사탕 더미를 관객이 가져갈 수 있도록 했습니다. 더미는 점점 줄어들다 다시 채워지는데, 이는 에이즈로 세상을 떠난 연인의 생명이 소진되고도 기억으로 다시 채워지는 과정을 은유합니다.",
+    },
+    {
+      title: "허공으로의 도약",
+      meta: "이브 클랭 · 1960",
+      icon: ICONS.leap,
+      question: "이 유명한 이미지는 실제로 어떻게 만들어졌을까요?",
+      options: [
+        "실제로 건물에서 뛰어내리는 순간을 그대로 촬영했다",
+        "여러 장의 사진을 합성한 포토몽타주였다",
+        "유화 물감으로 그린 그림이다",
+        "석고로 만든 조각이다",
+      ],
+      answer: 1,
+      explanation:
+        "클랭이 그물망 위로 뛰어내리는 사진과, 그물망을 지운 거리 사진을 합성해 만든 포토몽타주입니다. '보이는 것이 곧 사실은 아니다'라는 점에서 이 작품 자체가 개념적 트릭이자 예술가의 신화 만들기로 해석됩니다.",
+    },
+    {
+      title: "이것은 파이프가 아니다",
+      meta: "르네 마그리트 · 1929",
+      icon: ICONS.pipe,
+      question: '파이프 그림 아래 적힌 문구 "Ceci n\'est pas une pipe"의 의미는?',
+      options: [
+        "그림 속 파이프는 진짜 파이프가 아니라 '이미지'일 뿐이다",
+        "작가가 담배를 싫어한다는 뜻이다",
+        "그림이 잘못 그려졌다는 사과문이다",
+        "파이프 제조사의 광고 문구다",
+      ],
+      answer: 0,
+      explanation:
+        "아무리 사실적으로 그려도 캔버스 위의 파이프는 실제로 담배를 채워 피울 수 없는 '이미지'일 뿐입니다. 마그리트는 이 문구로 사물과 그 재현(이미지·언어) 사이의 간극을 짚으며, 이후 개념미술 작가들에게 큰 영향을 주었습니다.",
+    },
+  ];
+
+  const LEADERBOARD_KEY = "concept-art-quiz-leaderboard";
+  const state = { playerName: "", index: 0, score: 0, order: [] };
+
+  const screens = {
+    start: document.getElementById("screen-start"),
+    quiz: document.getElementById("screen-quiz"),
+    result: document.getElementById("screen-result"),
+  };
+
+  function showScreen(name) {
+    Object.values(screens).forEach((el) => el.classList.remove("active"));
+    screens[name].classList.add("active");
+  }
+
+  function loadLeaderboard() {
+    try {
+      const raw = localStorage.getItem(LEADERBOARD_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+  function saveLeaderboard(entries) {
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
+  }
+
+  function renderLeaderboard(listEl) {
+    const entries = loadLeaderboard()
+      .slice()
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+      .slice(0, 10);
+
+    listEl.innerHTML = "";
+    if (entries.length === 0) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "아직 참가자가 없습니다. 첫 번째 참가자가 되어보세요!";
+      listEl.appendChild(li);
+      return;
+    }
+    for (const entry of entries) {
+      const li = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = entry.name;
+      const score = document.createElement("span");
+      score.textContent = `${entry.score} / ${ARTWORKS.length}`;
+      li.append(name, score);
+      listEl.appendChild(li);
+    }
+  }
+
+  function renderAllLeaderboards() {
+    renderLeaderboard(document.getElementById("leaderboard-list"));
+    renderLeaderboard(document.getElementById("leaderboard-list-result"));
+  }
+
+  function shuffledIndices() {
+    const idx = ARTWORKS.map((_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    return idx;
+  }
+
+  function startQuiz() {
+    const input = document.getElementById("player-name");
+    const name = input.value.trim();
+    const errorEl = document.getElementById("start-error");
+    if (!name) {
+      errorEl.hidden = false;
+      input.focus();
+      return;
+    }
+    errorEl.hidden = true;
+    state.playerName = name;
+    state.index = 0;
+    state.score = 0;
+    state.order = shuffledIndices();
+    showScreen("quiz");
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    const artwork = ARTWORKS[state.order[state.index]];
+    document.getElementById("quiz-player").textContent = `참가자 ${state.playerName}`;
+    document.getElementById("quiz-progress").textContent = `${state.index + 1} / ${ARTWORKS.length}`;
+    document.getElementById("quiz-score").textContent = `점수 ${state.score}`;
+
+    document.getElementById("artwork-visual").innerHTML = artwork.icon;
+    document.getElementById("artwork-title").textContent = artwork.title;
+    document.getElementById("artwork-meta").textContent = artwork.meta;
+    document.getElementById("question-text").textContent = artwork.question;
+
+    const optionsEl = document.getElementById("options");
+    optionsEl.innerHTML = "";
+    artwork.options.forEach((optionText, i) => {
+      const btn = document.createElement("button");
+      btn.className = "option";
+      btn.textContent = optionText;
+      btn.addEventListener("click", () => selectAnswer(i));
+      optionsEl.appendChild(btn);
+    });
+
+    document.getElementById("explanation").hidden = true;
+    document.getElementById("btn-next").hidden = true;
+  }
+
+  function selectAnswer(choiceIndex) {
+    const artwork = ARTWORKS[state.order[state.index]];
+    const optionButtons = document.querySelectorAll("#options .option");
+    optionButtons.forEach((btn, i) => {
+      btn.disabled = true;
+      if (i === artwork.answer) btn.classList.add("correct");
+      else if (i === choiceIndex) btn.classList.add("wrong");
+    });
+    if (choiceIndex === artwork.answer) {
+      state.score += 1;
+      document.getElementById("quiz-score").textContent = `점수 ${state.score}`;
+    }
+    const explanationEl = document.getElementById("explanation");
+    explanationEl.textContent = artwork.explanation;
+    explanationEl.hidden = false;
+    const nextBtn = document.getElementById("btn-next");
+    nextBtn.hidden = false;
+    nextBtn.textContent = state.index === ARTWORKS.length - 1 ? "결과 보기" : "다음 작품";
+  }
+
+  function goNext() {
+    state.index += 1;
+    if (state.index >= ARTWORKS.length) finishQuiz();
+    else renderQuestion();
+  }
+
+  function finishQuiz() {
+    const entries = loadLeaderboard();
+    entries.push({ name: state.playerName, score: state.score, at: Date.now() });
+    saveLeaderboard(entries);
+
+    document.getElementById("result-headline").textContent =
+      `${state.playerName}님, ${ARTWORKS.length}문제 중 ${state.score}문제 정답!`;
+    document.getElementById("result-detail").textContent =
+      state.score === ARTWORKS.length
+        ? "완벽해요! 개념미술 감상 고수네요."
+        : "수고하셨어요! 다음 참가자에게 자리를 넘겨주세요.";
+
+    renderAllLeaderboards();
+    showScreen("result");
+  }
+
+  function resetLeaderboard() {
+    if (!confirm("참가자 순위판을 초기화할까요?")) return;
+    saveLeaderboard([]);
+    renderAllLeaderboards();
+  }
+
+  document.getElementById("btn-start").addEventListener("click", startQuiz);
+  document.getElementById("player-name").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") startQuiz();
+  });
+  document.getElementById("btn-next").addEventListener("click", goNext);
+  document.getElementById("btn-again").addEventListener("click", () => {
+    document.getElementById("player-name").value = "";
+    showScreen("start");
+    renderAllLeaderboards();
+    document.getElementById("player-name").focus();
+  });
+  document.getElementById("btn-reset-leaderboard").addEventListener("click", resetLeaderboard);
+
+  renderAllLeaderboards();
+</script>
+</body>
+</html>
