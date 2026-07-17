@@ -90,7 +90,7 @@ async function initLeaderboard() {
     const { getDatabase, ref, push, remove, get, query, orderByChild, limitToLast, onValue } = await import(
       "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js"
     );
-    const { firebaseConfig } = await import("./firebase-config.js?v=4");
+    const { firebaseConfig } = await import("./firebase-config-v2.js");
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -200,6 +200,9 @@ function renderLeaderboardList(listEl, entries) {
 function renderAllLeaderboards(entries) {
   renderLeaderboardList(document.getElementById("leaderboard-list"), entries);
   renderLeaderboardList(document.getElementById("leaderboard-list-result"), entries);
+  document.querySelectorAll(".live-label").forEach((el) => {
+    el.textContent = `실시간 · ${entries.length}명 수신`;
+  });
 }
 
 function shuffle(arr) {
