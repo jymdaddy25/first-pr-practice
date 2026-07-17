@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>개념미술 감상 퀴즈</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <header class="app-header">
+    <h1>개념미술 감상 퀴즈</h1>
+    <p class="subtitle">작품을 감상하고, 함께 모여 퀴즈를 풀어보세요</p>
+  </header>
+
+  <!-- 시작 화면: 참가자 이름 입력 -->
+  <section id="screen-start" class="screen active">
+    <div class="card">
+      <h2>참가 준비</h2>
+      <p>한 명씩 이름을 입력하고 퀴즈를 시작하세요. 결과는 아래 참가자 순위판에 함께 기록됩니다.</p>
+      <label for="player-name">참가자 이름</label>
+      <input id="player-name" type="text" maxlength="12" placeholder="예: 지현" />
+      <button id="btn-start" class="btn-primary">퀴즈 시작</button>
+      <p id="start-error" class="error-msg" hidden>이름을 입력해주세요.</p>
+    </div>
+
+    <div class="card leaderboard-card">
+      <h2>참가자 순위</h2>
+      <ol id="leaderboard-list" class="leaderboard-list">
+        <li class="empty">아직 참가자가 없습니다. 첫 번째 참가자가 되어보세요!</li>
+      </ol>
+      <button id="btn-reset-leaderboard" class="btn-text">순위판 초기화</button>
+    </div>
+  </section>
+
+  <!-- 퀴즈 진행 화면 -->
+  <section id="screen-quiz" class="screen">
+    <div class="quiz-meta">
+      <span id="quiz-player"></span>
+      <span id="quiz-progress"></span>
+      <span id="quiz-score">점수: 0</span>
+    </div>
+
+    <div class="card artwork-card">
+      <div id="artwork-visual" class="artwork-visual"></div>
+      <div class="artwork-caption">
+        <strong id="artwork-title"></strong>
+        <span id="artwork-meta"></span>
+      </div>
+    </div>
+
+    <div class="card question-card">
+      <h2 id="question-text"></h2>
+      <div id="options" class="options"></div>
+      <p id="explanation" class="explanation" hidden></p>
+      <button id="btn-next" class="btn-primary" hidden>다음 작품</button>
+    </div>
+  </section>
+
+  <!-- 결과 화면 -->
+  <section id="screen-result" class="screen">
+    <div class="card result-card">
+      <h2 id="result-headline"></h2>
+      <p id="result-detail"></p>
+      <button id="btn-again" class="btn-primary">다음 참가자 시작</button>
+    </div>
+
+    <div class="card leaderboard-card">
+      <h2>참가자 순위</h2>
+      <ol id="leaderboard-list-result" class="leaderboard-list"></ol>
+    </div>
+  </section>
+
+</div>
+<script src="quiz.js"></script>
+</body>
+</html>
