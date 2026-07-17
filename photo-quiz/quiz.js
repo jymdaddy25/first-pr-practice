@@ -90,7 +90,7 @@ async function initLeaderboard() {
     const { getDatabase, ref, push, remove, get, query, orderByChild, limitToLast, onValue } = await import(
       "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js"
     );
-    const { firebaseConfig } = await import("./firebase-config.js?v=3");
+    const { firebaseConfig } = await import("./firebase-config.js?v=4");
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -119,9 +119,13 @@ async function initLeaderboard() {
 }
 
 function refreshLeaderboard() {
-  if (!firebaseRefresh) return;
+  if (!firebaseRefresh) {
+    showLeaderboardError({ message: "초기화되지 않음" });
+    return;
+  }
   firebaseRefresh().catch((err) => {
     console.error("순위판을 새로고침하지 못했습니다", err);
+    showLeaderboardError(err);
   });
 }
 
