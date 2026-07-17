@@ -71,30 +71,42 @@ const RESET_PASSWORD = "2528";
 
 let firebasePush = null;
 let firebaseRemoveAll = null;
+let firebaseRefresh = null;
 
+function snapshotToEntries(snapshot) {
+  const entries = [];
+  snapshot.forEach((child) => entries.push(child.val()));
+  entries.reverse();
+  return entries;
+}
+
+// 카카오톡 등 일부 인앱 브라우저는 Firebase의 실시간(웹소켓) 구독이 끊기거나
+// 갱신 이벤트를 못 받는 경우가 있습니다. onValue 실시간 구독은 그대로 두되,
+// 순위판을 실제로 보여주는 시점(진입/제출 직후/새로고침 버튼)마다 get()으로
+// 한 번씩 직접 다시 읽어와 화면을 확실히 최신 상태로 맞춥니다.
 async function initLeaderboard() {
   try {
     const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js");
-    const { getDatabase, ref, push, remove, query, orderByChild, limitToLast, onValue } = await import(
+    const { getDatabase, ref, push, remove, get, query, orderByChild, limitToLast, onValue } = await import(
       "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js"
     );
-    const { firebaseConfig } = await import("./firebase-config.js?v=2");
+    const { firebaseConfig } = await import("./firebase-config.js?v=3");
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const scoresRef = ref(db, "photoQuizScores");
+    const leaderboardQuery = query(scoresRef, orderByChild("score"), limitToLast(10));
+
     firebasePush = (entry) => push(scoresRef, entry);
     firebaseRemoveAll = () => remove(scoresRef);
+    firebaseRefresh = async () => {
+      const snapshot = await get(leaderboardQuery);
+      renderAllLeaderboards(snapshotToEntries(snapshot));
+    };
 
-    const leaderboardQuery = query(scoresRef, orderByChild("score"), limitToLast(10));
     onValue(
       leaderboardQuery,
-      (snapshot) => {
-        const entries = [];
-        snapshot.forEach((child) => entries.push(child.val()));
-        entries.reverse();
-        renderAllLeaderboards(entries);
-      },
+      (snapshot) => renderAllLeaderboards(snapshotToEntries(snapshot)),
       (err) => {
         console.error("순위판을 불러오지 못했습니다", err);
         showLeaderboardError(err);
@@ -104,6 +116,13 @@ async function initLeaderboard() {
     console.error("순위판 기능을 초기화하지 못했습니다 (퀴즈는 계속 플레이할 수 있습니다)", err);
     showLeaderboardError(err);
   }
+}
+
+function refreshLeaderboard() {
+  if (!firebaseRefresh) return;
+  firebaseRefresh().catch((err) => {
+    console.error("순위판을 새로고침하지 못했습니다", err);
+  });
 }
 
 function showLeaderboardError(err) {
@@ -126,11 +145,13 @@ function submitScore(entry) {
     statusEl.hidden = false;
     return;
   }
-  firebasePush(entry).catch((err) => {
-    console.error("점수를 순위판에 기록하지 못했습니다", err);
-    statusEl.textContent = `점수를 순위판에 기록하지 못했습니다 (${err.code || err.message}).`;
-    statusEl.hidden = false;
-  });
+  firebasePush(entry)
+    .then(() => refreshLeaderboard())
+    .catch((err) => {
+      console.error("점수를 순위판에 기록하지 못했습니다", err);
+      statusEl.textContent = `점수를 순위판에 기록하지 못했습니다 (${err.code || err.message}).`;
+      statusEl.hidden = false;
+    });
 }
 
 function resetLeaderboard() {
@@ -144,10 +165,12 @@ function resetLeaderboard() {
     alert("비밀번호가 틀렸습니다.");
     return;
   }
-  firebaseRemoveAll().catch((err) => {
-    console.error("순위판을 초기화하지 못했습니다", err);
-    alert("순위판을 초기화하지 못했습니다.");
-  });
+  firebaseRemoveAll()
+    .then(() => refreshLeaderboard())
+    .catch((err) => {
+      console.error("순위판을 초기화하지 못했습니다", err);
+      alert("순위판을 초기화하지 못했습니다.");
+    });
 }
 
 function renderLeaderboardList(listEl, entries) {
@@ -329,7 +352,15 @@ document.getElementById("btn-again").addEventListener("click", () => {
   document.getElementById("player-name").value = "";
   showScreen("start");
   document.getElementById("player-name").focus();
+  refreshLeaderboard();
 });
 document.getElementById("btn-reset-leaderboard").addEventListener("click", resetLeaderboard);
+document.querySelectorAll(".btn-refresh-leaderboard").forEach((btn) => {
+  btn.addEventListener("click", refreshLeaderboard);
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshLeaderboard();
+});
 
 initLeaderboard();

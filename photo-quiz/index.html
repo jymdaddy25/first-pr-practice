@@ -70,9 +70,10 @@
   }
   .btn-primary:hover { filter: brightness(1.08); }
   .btn-text {
-    display: block; margin: 14px auto 0; background: none; border: none; color: var(--ink-dim);
+    display: block; margin: 0; background: none; border: none; color: var(--ink-dim);
     font-size: 0.78rem; text-decoration: underline; cursor: pointer; font-family: var(--sans);
   }
+  .leaderboard-actions { display: flex; justify-content: center; gap: 16px; margin-top: 14px; }
   .error-msg { color: var(--wrong); font-size: 0.85rem; margin: -8px 0 12px; }
 
   .leaderboard-card h2 { display: flex; align-items: center; gap: 6px; }
@@ -172,7 +173,10 @@
       <ol id="leaderboard-list" class="leaderboard-list">
         <li class="empty">아직 참가자가 없습니다. 첫 번째 참가자가 되어보세요!</li>
       </ol>
-      <button id="btn-reset-leaderboard" class="btn-text">순위판 초기화</button>
+      <div class="leaderboard-actions">
+        <button class="btn-refresh-leaderboard btn-text">새로고침</button>
+        <button id="btn-reset-leaderboard" class="btn-text">순위판 초기화</button>
+      </div>
     </div>
   </section>
 
@@ -203,10 +207,13 @@
     <div class="card leaderboard-card">
       <h2>참가자 순위 <span class="live-dot" aria-hidden="true"></span><span class="live-label">실시간</span></h2>
       <ol id="leaderboard-list-result" class="leaderboard-list"></ol>
+      <div class="leaderboard-actions">
+        <button class="btn-refresh-leaderboard btn-text">새로고침</button>
+      </div>
     </div>
   </section>
 
 </div>
-<script type="module" src="quiz.js?v=2"></script>
+<script type="module" src="quiz.js?v=3"></script>
 </body>
 </html>
