@@ -64,71 +64,83 @@ function showScreen(name) {
   screens[name].classList.add("active");
 }
 
-// 순위판은 Firebase Realtime Database로 공유됩니다. CDN 로드에 실패해도
-// (네트워크 문제, 광고 차단 등) 퀴즈 자체는 계속 플레이할 수 있도록,
-// 이 초기화는 별도 비동기 함수에서 시도하고 실패를 조용히 흡수합니다.
+// 순위판은 Firebase Realtime Database와 REST API(fetch)로 공유됩니다. 처음엔
+// Firebase JS SDK(onValue 실시간 구독)를 썼는데, 규칙과 데이터가 모두 정상인데도
+// 특정 기기에서 실제 저장된 값 중 일부만 보이는 현상이 있었습니다 - SDK가 내부적으로
+// 들고 있는 연결/캐시 상태가 꼬였을 가능성이 높아 보여, 매번 새 HTTP 요청으로
+// 끝나는 REST API 방식으로 바꿨습니다. 요청 하나하나가 독립적이라 이전 상태가
+// 남아 화면이 안 바뀌는 문제 자체가 생기기 어렵습니다.
 const RESET_PASSWORD = "2528";
 
-let firebasePush = null;
-let firebaseRemoveAll = null;
-let firebaseRefresh = null;
+let dbBaseUrl = null;
+let liveStream = null;
 
-// score로 정렬해 상위 10명만 추림 (Firebase 쿼리 대신 전체를 받아 여기서 정렬합니다 -
-// orderByChild/limitToLast 쿼리가 일부 환경에서 신뢰할 수 없게 동작하는 문제가 있어
-// 단순한 전체 읽기 + 클라이언트 정렬 방식으로 바꿨습니다).
-function snapshotToEntries(snapshot) {
-  const entries = [];
-  snapshot.forEach((child) => entries.push(child.val()));
+function entriesFromRestData(data) {
+  if (!data) return [];
+  const entries = Object.values(data);
   entries.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   return entries.slice(0, 10);
 }
 
-// 카카오톡 등 일부 인앱 브라우저는 Firebase의 실시간(웹소켓) 구독이 끊기거나
-// 갱신 이벤트를 못 받는 경우가 있습니다. onValue 실시간 구독은 그대로 두되,
-// 순위판을 실제로 보여주는 시점(진입/제출 직후/새로고침 버튼)마다 get()으로
-// 한 번씩 직접 다시 읽어와 화면을 확실히 최신 상태로 맞춥니다.
 async function initLeaderboard() {
   try {
-    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js");
-    const { getDatabase, ref, push, remove, get, onValue } = await import(
-      "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js"
-    );
     const { firebaseConfig } = await import("./firebase-config-v3.js");
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const scoresRef = ref(db, "photoQuizScores");
-
-    firebasePush = (entry) => push(scoresRef, entry);
-    firebaseRemoveAll = () => remove(scoresRef);
-    firebaseRefresh = async () => {
-      const snapshot = await get(scoresRef);
-      renderAllLeaderboards(snapshotToEntries(snapshot));
-    };
-
-    onValue(
-      scoresRef,
-      (snapshot) => renderAllLeaderboards(snapshotToEntries(snapshot)),
-      (err) => {
-        console.error("순위판을 불러오지 못했습니다", err);
-        showLeaderboardError(err);
-      }
-    );
+    dbBaseUrl = firebaseConfig.databaseURL.replace(/\/$/, "");
+    await refreshLeaderboard();
+    startLiveStream();
   } catch (err) {
     console.error("순위판 기능을 초기화하지 못했습니다 (퀴즈는 계속 플레이할 수 있습니다)", err);
     showLeaderboardError(err);
   }
 }
 
-function refreshLeaderboard() {
-  if (!firebaseRefresh) {
+// 서버가 보낸 이벤트(다른 사람의 제출 등)가 오면 그때마다 다시 새로 받아옵니다.
+// 이 스트림 연결 자체가 막힌 환경이어도 새로고침 버튼/자동 갱신 지점들이
+// 여전히 동작하므로 실패해도 조용히 무시합니다.
+function startLiveStream() {
+  try {
+    if (liveStream) liveStream.close();
+    liveStream = new EventSource(`${dbBaseUrl}/photoQuizScores.json`);
+    liveStream.addEventListener("put", () => refreshLeaderboard());
+    liveStream.addEventListener("patch", () => refreshLeaderboard());
+    liveStream.onerror = () => {
+      /* 무시: 수동/자동 새로고침 경로가 대체 수단으로 남아있음 */
+    };
+  } catch (err) {
+    console.error("실시간 스트림을 시작하지 못했습니다", err);
+  }
+}
+
+async function pushScoreRest(entry) {
+  const res = await fetch(`${dbBaseUrl}/photoQuizScores.json`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function removeAllScores() {
+  const res = await fetch(`${dbBaseUrl}/photoQuizScores.json`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+async function refreshLeaderboard() {
+  if (!dbBaseUrl) {
     showLeaderboardError({ message: "초기화되지 않음" });
     return;
   }
-  firebaseRefresh().catch((err) => {
-    console.error("순위판을 새로고침하지 못했습니다", err);
+  try {
+    const res = await fetch(`${dbBaseUrl}/photoQuizScores.json?ts=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderAllLeaderboards(entriesFromRestData(data));
+  } catch (err) {
+    console.error("순위판을 불러오지 못했습니다", err);
     showLeaderboardError(err);
-  });
+  }
 }
 
 function showLeaderboardError(err) {
@@ -146,22 +158,22 @@ function showLeaderboardError(err) {
 function submitScore(entry) {
   const statusEl = document.getElementById("submit-status");
   statusEl.hidden = true;
-  if (!firebasePush) {
+  if (!dbBaseUrl) {
     statusEl.textContent = "순위판에 연결되지 않아 이번 점수는 공유되지 않았습니다.";
     statusEl.hidden = false;
     return;
   }
-  firebasePush(entry)
+  pushScoreRest(entry)
     .then(() => refreshLeaderboard())
     .catch((err) => {
       console.error("점수를 순위판에 기록하지 못했습니다", err);
-      statusEl.textContent = `점수를 순위판에 기록하지 못했습니다 (${err.code || err.message}).`;
+      statusEl.textContent = `점수를 순위판에 기록하지 못했습니다 (${err.message}).`;
       statusEl.hidden = false;
     });
 }
 
 function resetLeaderboard() {
-  if (!firebaseRemoveAll) {
+  if (!dbBaseUrl) {
     alert("순위판을 아직 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
     return;
   }
@@ -171,7 +183,7 @@ function resetLeaderboard() {
     alert("비밀번호가 틀렸습니다.");
     return;
   }
-  firebaseRemoveAll()
+  removeAllScores()
     .then(() => refreshLeaderboard())
     .catch((err) => {
       console.error("순위판을 초기화하지 못했습니다", err);
