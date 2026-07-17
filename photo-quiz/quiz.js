@@ -2,6 +2,8 @@
 // 각 라운드: 실제 전시 사진 1장 + 편집(좌우반전/확대·색보정/회전·彩度조정)된 3장 중
 // 진짜를 5초 안에 고르는 게임. 점수 = 정답 개수 x 100 + 라운드별 시간 보너스.
 // 시간 보너스 = max(0, (10 - 답변까지 걸린 초) x 10), 정답을 맞혔을 때만 적용.
+// 순위판은 Firebase Realtime Database로 공유되어, 각자 다른 기기에서 동시에
+// 참여해도 모두의 화면에 실시간으로 반영됩니다.
 
 const TIME_LIMIT = 5; // seconds per round
 const NEXT_DELAY = 1700; // ms pause after each answer before advancing
@@ -39,8 +41,6 @@ const ROUNDS = [
   },
 ];
 
-const LEADERBOARD_KEY = "photo-original-quiz-leaderboard";
-
 const state = {
   playerName: "",
   index: 0,
@@ -64,24 +64,63 @@ function showScreen(name) {
   screens[name].classList.add("active");
 }
 
-function loadLeaderboard() {
+// 순위판은 Firebase Realtime Database로 공유됩니다. CDN 로드에 실패해도
+// (네트워크 문제, 광고 차단 등) 퀴즈 자체는 계속 플레이할 수 있도록,
+// 이 초기화는 별도 비동기 함수에서 시도하고 실패를 조용히 흡수합니다.
+let firebasePush = null;
+
+async function initLeaderboard() {
   try {
-    const raw = localStorage.getItem(LEADERBOARD_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js");
+    const { getDatabase, ref, push, query, orderByChild, limitToLast, onValue } = await import(
+      "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js"
+    );
+    const { firebaseConfig } = await import("./firebase-config.js");
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const scoresRef = ref(db, "photoQuizScores");
+    firebasePush = (entry) => push(scoresRef, entry);
+
+    const leaderboardQuery = query(scoresRef, orderByChild("score"), limitToLast(10));
+    onValue(
+      leaderboardQuery,
+      (snapshot) => {
+        const entries = [];
+        snapshot.forEach((child) => entries.push(child.val()));
+        entries.reverse();
+        renderAllLeaderboards(entries);
+      },
+      (err) => {
+        console.error("순위판을 불러오지 못했습니다", err);
+        showLeaderboardError();
+      }
+    );
+  } catch (err) {
+    console.error("순위판 기능을 초기화하지 못했습니다 (퀴즈는 계속 플레이할 수 있습니다)", err);
+    showLeaderboardError();
   }
 }
-function saveLeaderboard(entries) {
-  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
+
+function showLeaderboardError() {
+  for (const id of ["leaderboard-list", "leaderboard-list-result"]) {
+    const listEl = document.getElementById(id);
+    listEl.innerHTML = "";
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "순위판을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.";
+    listEl.appendChild(li);
+  }
 }
 
-function renderLeaderboard(listEl) {
-  const entries = loadLeaderboard()
-    .slice()
-    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-    .slice(0, 10);
+function submitScore(entry) {
+  if (!firebasePush) return;
+  firebasePush(entry).catch((err) => {
+    console.error("점수를 순위판에 기록하지 못했습니다", err);
+  });
+}
 
+function renderLeaderboardList(listEl, entries) {
   listEl.innerHTML = "";
   if (entries.length === 0) {
     const li = document.createElement("li");
@@ -101,9 +140,9 @@ function renderLeaderboard(listEl) {
   }
 }
 
-function renderAllLeaderboards() {
-  renderLeaderboard(document.getElementById("leaderboard-list"));
-  renderLeaderboard(document.getElementById("leaderboard-list-result"));
+function renderAllLeaderboards(entries) {
+  renderLeaderboardList(document.getElementById("leaderboard-list"), entries);
+  renderLeaderboardList(document.getElementById("leaderboard-list-result"), entries);
 }
 
 function shuffle(arr) {
@@ -235,14 +274,12 @@ function goNext() {
 }
 
 function finishQuiz() {
-  const entries = loadLeaderboard();
-  entries.push({
+  submitScore({
     name: state.playerName,
     score: state.score,
     correct: state.correctCount,
     at: Date.now(),
   });
-  saveLeaderboard(entries);
 
   document.getElementById("result-headline").textContent = `${state.playerName}님, 수고하셨어요!`;
   document.getElementById("result-score").textContent = `${state.score}점`;
@@ -251,14 +288,7 @@ function finishQuiz() {
       ? `${ROUNDS.length}문제를 모두 맞혔어요! 진짜 사진 감별사네요.`
       : `${ROUNDS.length}문제 중 ${state.correctCount}문제 정답. 다음 참가자에게 자리를 넘겨주세요.`;
 
-  renderAllLeaderboards();
   showScreen("result");
-}
-
-function resetLeaderboard() {
-  if (!confirm("참가자 순위판을 초기화할까요?")) return;
-  saveLeaderboard([]);
-  renderAllLeaderboards();
 }
 
 document.getElementById("btn-start").addEventListener("click", startQuiz);
@@ -268,9 +298,7 @@ document.getElementById("player-name").addEventListener("keydown", (e) => {
 document.getElementById("btn-again").addEventListener("click", () => {
   document.getElementById("player-name").value = "";
   showScreen("start");
-  renderAllLeaderboards();
   document.getElementById("player-name").focus();
 });
-document.getElementById("btn-reset-leaderboard").addEventListener("click", resetLeaderboard);
 
-renderAllLeaderboards();
+initLeaderboard();
