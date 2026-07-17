@@ -67,12 +67,15 @@ function showScreen(name) {
 // 순위판은 Firebase Realtime Database로 공유됩니다. CDN 로드에 실패해도
 // (네트워크 문제, 광고 차단 등) 퀴즈 자체는 계속 플레이할 수 있도록,
 // 이 초기화는 별도 비동기 함수에서 시도하고 실패를 조용히 흡수합니다.
+const RESET_PASSWORD = "2528";
+
 let firebasePush = null;
+let firebaseRemoveAll = null;
 
 async function initLeaderboard() {
   try {
     const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js");
-    const { getDatabase, ref, push, query, orderByChild, limitToLast, onValue } = await import(
+    const { getDatabase, ref, push, remove, query, orderByChild, limitToLast, onValue } = await import(
       "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js"
     );
     const { firebaseConfig } = await import("./firebase-config.js");
@@ -81,6 +84,7 @@ async function initLeaderboard() {
     const db = getDatabase(app);
     const scoresRef = ref(db, "photoQuizScores");
     firebasePush = (entry) => push(scoresRef, entry);
+    firebaseRemoveAll = () => remove(scoresRef);
 
     const leaderboardQuery = query(scoresRef, orderByChild("score"), limitToLast(10));
     onValue(
@@ -117,6 +121,23 @@ function submitScore(entry) {
   if (!firebasePush) return;
   firebasePush(entry).catch((err) => {
     console.error("점수를 순위판에 기록하지 못했습니다", err);
+  });
+}
+
+function resetLeaderboard() {
+  if (!firebaseRemoveAll) {
+    alert("순위판을 아직 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    return;
+  }
+  const input = prompt("순위판을 초기화하려면 비밀번호를 입력하세요.");
+  if (input === null) return;
+  if (input !== RESET_PASSWORD) {
+    alert("비밀번호가 틀렸습니다.");
+    return;
+  }
+  firebaseRemoveAll().catch((err) => {
+    console.error("순위판을 초기화하지 못했습니다", err);
+    alert("순위판을 초기화하지 못했습니다.");
   });
 }
 
@@ -300,5 +321,6 @@ document.getElementById("btn-again").addEventListener("click", () => {
   showScreen("start");
   document.getElementById("player-name").focus();
 });
+document.getElementById("btn-reset-leaderboard").addEventListener("click", resetLeaderboard);
 
 initLeaderboard();
