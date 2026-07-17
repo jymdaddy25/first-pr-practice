@@ -73,11 +73,14 @@ let firebasePush = null;
 let firebaseRemoveAll = null;
 let firebaseRefresh = null;
 
+// score로 정렬해 상위 10명만 추림 (Firebase 쿼리 대신 전체를 받아 여기서 정렬합니다 -
+// orderByChild/limitToLast 쿼리가 일부 환경에서 신뢰할 수 없게 동작하는 문제가 있어
+// 단순한 전체 읽기 + 클라이언트 정렬 방식으로 바꿨습니다).
 function snapshotToEntries(snapshot) {
   const entries = [];
   snapshot.forEach((child) => entries.push(child.val()));
-  entries.reverse();
-  return entries;
+  entries.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  return entries.slice(0, 10);
 }
 
 // 카카오톡 등 일부 인앱 브라우저는 Firebase의 실시간(웹소켓) 구독이 끊기거나
@@ -87,25 +90,24 @@ function snapshotToEntries(snapshot) {
 async function initLeaderboard() {
   try {
     const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js");
-    const { getDatabase, ref, push, remove, get, query, orderByChild, limitToLast, onValue } = await import(
+    const { getDatabase, ref, push, remove, get, onValue } = await import(
       "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js"
     );
-    const { firebaseConfig } = await import("./firebase-config-v2.js");
+    const { firebaseConfig } = await import("./firebase-config-v3.js");
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const scoresRef = ref(db, "photoQuizScores");
-    const leaderboardQuery = query(scoresRef, orderByChild("score"), limitToLast(10));
 
     firebasePush = (entry) => push(scoresRef, entry);
     firebaseRemoveAll = () => remove(scoresRef);
     firebaseRefresh = async () => {
-      const snapshot = await get(leaderboardQuery);
+      const snapshot = await get(scoresRef);
       renderAllLeaderboards(snapshotToEntries(snapshot));
     };
 
     onValue(
-      leaderboardQuery,
+      scoresRef,
       (snapshot) => renderAllLeaderboards(snapshotToEntries(snapshot)),
       (err) => {
         console.error("순위판을 불러오지 못했습니다", err);
