@@ -78,7 +78,7 @@ async function initLeaderboard() {
     const { getDatabase, ref, push, remove, query, orderByChild, limitToLast, onValue } = await import(
       "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js"
     );
-    const { firebaseConfig } = await import("./firebase-config.js");
+    const { firebaseConfig } = await import("./firebase-config.js?v=2");
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -97,30 +97,39 @@ async function initLeaderboard() {
       },
       (err) => {
         console.error("순위판을 불러오지 못했습니다", err);
-        showLeaderboardError();
+        showLeaderboardError(err);
       }
     );
   } catch (err) {
     console.error("순위판 기능을 초기화하지 못했습니다 (퀴즈는 계속 플레이할 수 있습니다)", err);
-    showLeaderboardError();
+    showLeaderboardError(err);
   }
 }
 
-function showLeaderboardError() {
+function showLeaderboardError(err) {
+  const reason = err && (err.code || err.message) ? ` (${err.code || err.message})` : "";
   for (const id of ["leaderboard-list", "leaderboard-list-result"]) {
     const listEl = document.getElementById(id);
     listEl.innerHTML = "";
     const li = document.createElement("li");
     li.className = "empty";
-    li.textContent = "순위판을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.";
+    li.textContent = `순위판을 불러올 수 없습니다${reason}. 인터넷 연결을 확인해주세요.`;
     listEl.appendChild(li);
   }
 }
 
 function submitScore(entry) {
-  if (!firebasePush) return;
+  const statusEl = document.getElementById("submit-status");
+  statusEl.hidden = true;
+  if (!firebasePush) {
+    statusEl.textContent = "순위판에 연결되지 않아 이번 점수는 공유되지 않았습니다.";
+    statusEl.hidden = false;
+    return;
+  }
   firebasePush(entry).catch((err) => {
     console.error("점수를 순위판에 기록하지 못했습니다", err);
+    statusEl.textContent = `점수를 순위판에 기록하지 못했습니다 (${err.code || err.message}).`;
+    statusEl.hidden = false;
   });
 }
 
