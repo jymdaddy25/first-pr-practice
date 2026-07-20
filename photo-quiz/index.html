@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>진짜 사진 찾기 · 그룹 퀴즈</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#3f7d6c" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="사진찾기" />
+<meta name="mobile-web-app-capable" content="yes" />
+<style>
+  :root {
+    --bg: #12141a;
+    --bg-2: #1b1e26;
+    --plate: #191c23;
+    --panel: #1b1e26;
+    --panel-border: #2c303c;
+    --ink: #ece7db;
+    --ink-dim: #9b9aa5;
+    --accent: #6fa89a;
+    --accent-strong: #9bcabc;
+    --accent-ink: #0c1512;
+    --correct: #7cb17a;
+    --correct-bg: rgba(124, 177, 122, 0.16);
+    --wrong: #d9705f;
+    --wrong-bg: rgba(217, 112, 95, 0.16);
+    --radius: 3px;
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Noto Serif KR", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #eef0ea; --bg-2: #f7f8f4; --plate: #ffffff; --panel: #ffffff;
+      --panel-border: #d7dcd2; --ink: #1c211d; --ink-dim: #5c6459;
+      --accent: #3f7d6c; --accent-strong: #2c5c4f; --accent-ink: #f6faf7;
+      --correct: #3f7d3f; --correct-bg: rgba(63, 125, 63, 0.12);
+      --wrong: #b1493a; --wrong-bg: rgba(177, 73, 58, 0.12);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); min-height: 100vh; }
+  .app { max-width: 640px; margin: 0 auto; padding: 40px 20px 72px; }
+
+  .masthead { text-align: center; margin-bottom: 30px; }
+  .kicker {
+    display: inline-block; font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--accent-strong); border: 1px solid var(--panel-border); border-radius: 999px;
+    padding: 4px 12px; margin-bottom: 14px;
+  }
+  .masthead h1 { font-family: var(--serif); font-weight: 400; font-size: 1.9rem; margin: 0 0 8px; text-wrap: balance; }
+  .masthead .rule { width: 48px; height: 1px; background: var(--panel-border); margin: 14px auto; }
+  .masthead p { color: var(--ink-dim); font-size: 0.94rem; margin: 0; line-height: 1.55; }
+
+  .screen { display: none; }
+  .screen.active { display: block; animation: fade-in 0.25s ease; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .screen.active { animation: none; } }
+
+  .card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 24px; margin-bottom: 18px; }
+  .card h2 { font-family: var(--serif); font-weight: 400; font-size: 1.2rem; margin: 0 0 10px; }
+  .card > p { color: var(--ink-dim); line-height: 1.6; font-size: 0.92rem; }
+
+  label { display: block; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 8px; }
+  input[type="text"] {
+    width: 100%; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--panel-border);
+    background: var(--bg-2); color: var(--ink); font-size: 1rem; font-family: var(--sans); margin-bottom: 16px;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn-primary {
+    width: 100%; padding: 13px 16px; border: 1px solid var(--accent); border-radius: var(--radius);
+    background: var(--accent); color: var(--accent-ink); font-size: 0.95rem; font-weight: 600;
+    cursor: pointer; font-family: var(--sans);
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-text {
+    display: block; margin: 0; background: none; border: none; color: var(--ink-dim);
+    font-size: 0.78rem; text-decoration: underline; cursor: pointer; font-family: var(--sans);
+  }
+  .btn-text:disabled { opacity: 0.6; cursor: default; }
+  .leaderboard-actions { display: flex; justify-content: center; gap: 16px; margin-top: 14px; }
+  .error-msg { color: var(--wrong); font-size: 0.85rem; margin: -8px 0 12px; }
+
+  .leaderboard-card h2 { display: flex; align-items: center; gap: 6px; }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--correct);
+    box-shadow: 0 0 0 0 var(--correct-bg); animation: pulse 1.8s ease-out infinite;
+  }
+  .live-label { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); font-family: var(--sans); font-weight: 600; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(124, 177, 122, 0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(124, 177, 122, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(124, 177, 122, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+  .leaderboard-list { list-style: none; margin: 0; padding: 0; counter-reset: rank; }
+  .leaderboard-list li {
+    counter-increment: rank; display: flex; justify-content: space-between; align-items: baseline;
+    padding: 10px 0; border-bottom: 1px solid var(--panel-border); font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .leaderboard-list li:last-child { border-bottom: none; }
+  .leaderboard-list li::before {
+    content: counter(rank); font-family: var(--serif); color: var(--accent-strong);
+    font-size: 0.85rem; margin-right: 10px; min-width: 1.2em;
+  }
+  .leaderboard-list li.empty { color: var(--ink-dim); font-size: 0.86rem; }
+  .leaderboard-list li.empty::before { content: ""; margin: 0; }
+
+  .quiz-meta {
+    display: flex; justify-content: space-between; font-size: 0.78rem; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px; padding: 0 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timer-track { height: 6px; border-radius: 999px; background: var(--bg-2); overflow: hidden; margin-bottom: 18px; border: 1px solid var(--panel-border); }
+  .timer-fill { height: 100%; width: 100%; background: var(--accent); transform-origin: left; }
+  .timer-fill.running { transition: width linear; }
+  .timer-fill.low { background: var(--wrong); }
+
+  #question-text { font-family: var(--serif); font-size: 1.08rem; line-height: 1.4; margin: 0 0 16px; text-align: center; text-wrap: balance; }
+
+  .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .photo-tile {
+    position: relative; padding: 0; border: 2px solid var(--panel-border); border-radius: var(--radius);
+    background: var(--plate); cursor: pointer; overflow: hidden; aspect-ratio: 1 / 1;
+  }
+  .photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-tile .tag {
+    position: absolute; top: 6px; left: 6px; background: rgba(12, 14, 18, 0.72); color: #ece7db;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 3px;
+  }
+  .photo-tile:hover:not(:disabled) { border-color: var(--accent); }
+  .photo-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .photo-tile:disabled { cursor: default; }
+  .photo-tile.correct { border-color: var(--correct); box-shadow: 0 0 0 2px var(--correct-bg) inset; }
+  .photo-tile.wrong { border-color: var(--wrong); box-shadow: 0 0 0 2px var(--wrong-bg) inset; }
+  .photo-tile.dim img { filter: grayscale(0.5) brightness(0.6); }
+
+  .feedback { text-align: center; min-height: 1.6em; font-size: 0.95rem; margin-bottom: 4px; font-weight: 600; }
+  .feedback.correct { color: var(--correct); }
+  .feedback.wrong { color: var(--wrong); }
+  .feedback .points { font-weight: 400; color: var(--ink-dim); font-size: 0.85rem; display: block; margin-top: 2px; }
+
+  .result-card { text-align: center; }
+  .result-card h2 { font-size: 1.4rem; }
+  .score-big { font-family: var(--serif); font-size: 2.4rem; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 420px) {
+    .masthead h1 { font-size: 1.5rem; }
+    .card { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="masthead">
+    <span class="kicker">셀프 가이드 그룹 퀴즈</span>
+    <h1>진짜 사진 찾기</h1>
+    <div class="rule"></div>
+    <p>전시에서 찍은 진짜 사진 한 장과, 살짝 편집된 사진 세 장 중에서<br />진짜를 5초 안에 찾아보세요</p>
+  </header>
+
+  <section id="screen-start" class="screen active">
+    <div class="card">
+      <h2>참가 준비</h2>
+      <p>한 명씩 이름을 입력하고 시작하세요. 문제당 5초, 정답은 100점 + 빠르게 맞힐수록 최대 100점의 시간 보너스가 붙습니다.</p>
+      <label for="player-name">참가자 이름</label>
+      <input id="player-name" type="text" maxlength="12" placeholder="예: 지현" />
+      <button id="btn-start" class="btn-primary">퀴즈 시작</button>
+      <p id="start-error" class="error-msg" hidden>이름을 입력해주세요.</p>
+    </div>
+
+    <div class="card leaderboard-card">
+      <h2>참가자 순위 <span class="live-dot" aria-hidden="true"></span><span class="live-label">실시간</span></h2>
+      <ol id="leaderboard-list" class="leaderboard-list">
+        <li class="empty">아직 참가자가 없습니다. 첫 번째 참가자가 되어보세요!</li>
+      </ol>
+      <div class="leaderboard-actions">
+        <button class="btn-refresh-leaderboard btn-text">새로고침</button>
+        <button id="btn-reset-leaderboard" class="btn-text">순위판 초기화</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-quiz" class="screen">
+    <div class="quiz-meta">
+      <span id="quiz-player"></span>
+      <span id="quiz-progress"></span>
+      <span id="quiz-score"></span>
+    </div>
+    <div class="timer-track"><div id="timer-fill" class="timer-fill"></div></div>
+
+    <div class="card question-card">
+      <h2 id="question-text">진짜 사진은 어느 것일까요?</h2>
+      <div id="photo-grid" class="photo-grid"></div>
+      <p id="feedback" class="feedback"></p>
+    </div>
+  </section>
+
+  <section id="screen-result" class="screen">
+    <div class="card result-card">
+      <h2 id="result-headline"></h2>
+      <div id="result-score" class="score-big"></div>
+      <p id="result-detail"></p>
+      <p id="submit-status" class="error-msg" hidden></p>
+      <button id="btn-again" class="btn-primary">다음 참가자 시작</button>
+    </div>
+
+    <div class="card leaderboard-card">
+      <h2>참가자 순위 <span class="live-dot" aria-hidden="true"></span><span class="live-label">실시간</span></h2>
+      <ol id="leaderboard-list-result" class="leaderboard-list"></ol>
+      <div class="leaderboard-actions">
+        <button class="btn-refresh-leaderboard btn-text">새로고침</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script type="module" src="quiz-v6.js"></script>
+</body>
+</html>
