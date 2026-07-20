@@ -1,11 +1,8 @@
-name: Deploy attendee list to GitHub Pages
+name: Deploy site to GitHub Pages
 
 on:
   push:
     branches: [master]
-    paths:
-      - "attendee-list/**"
-      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -28,6 +25,6 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: attendee-list
+          path: .
       - id: deployment
         uses: actions/deploy-pages@v4
