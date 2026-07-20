@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>미술관 참석자 명부</title>
+<style>
+  :root {
+    --bg: #16151a;
+    --panel: #201f26;
+    --panel-border: #322f3a;
+    --ink: #f2ede4;
+    --ink-dim: #b8b2c4;
+    --accent: #d4af6a;
+    --accent-ink: #1a1720;
+    --correct: #6fbf73;
+    --radius: 14px;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f1e8;
+      --panel: #ffffff;
+      --panel-border: #e2dbc9;
+      --ink: #221f2a;
+      --ink-dim: #5c5668;
+      --accent: #a97b2f;
+      --accent-ink: #ffffff;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  .app {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+
+  .app-header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .app-header h1 {
+    font-size: 1.5rem;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--ink-dim);
+    margin: 0;
+    font-size: 0.92rem;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+
+  .summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.92rem;
+    color: var(--ink-dim);
+  }
+
+  .summary strong {
+    color: var(--accent);
+  }
+
+  .attendee-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: row;
+  }
+
+  .attendee-list li {
+    counter-increment: row;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--panel-border);
+    font-size: 1rem;
+  }
+
+  .attendee-list li:last-child {
+    border-bottom: none;
+  }
+
+  .attendee-list li::before {
+    content: counter(row);
+    color: var(--ink-dim);
+    font-size: 0.8rem;
+    min-width: 20px;
+    text-align: right;
+  }
+
+  .attendee-name {
+    flex: 1;
+  }
+
+  .attendee-list li.checked .attendee-name {
+    color: var(--correct);
+    text-decoration: line-through;
+    text-decoration-color: var(--panel-border);
+  }
+
+  input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--panel-border);
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    border: none;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+
+  .btn:hover {
+    filter: brightness(1.06);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="app-header">
+    <h1>미술관 참석자 명부</h1>
+    <p class="subtitle" id="visit-date"></p>
+  </header>
+
+  <div class="card">
+    <div class="summary">
+      <span>참석 확인</span>
+      <span><strong id="checked-count">0</strong> / <span id="total-count">0</span>명</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <ol class="attendee-list" id="attendee-list"></ol>
+  </div>
+
+  <div class="actions">
+    <button id="btn-check-all" class="btn">전체 확인</button>
+    <button id="btn-reset" class="btn">초기화</button>
+  </div>
+
+</div>
+<script>
+  const ATTENDEES = [
+    "감혜경", "김강수", "박수범", "박윤진", "백수연", "신겸이",
+    "심지현", "왕환웅", "위광희", "정인호", "최명환", "한민경",
+    "최예슬", "진준한", "송보미", "이윤정", "박정용", "조진이",
+    "오주호", "최하나", "이은지", "김한샘", "이진영", "홍승표",
+  ];
+
+  const STORAGE_KEY = "museum-attendee-checkin";
+
+  const listEl = document.getElementById("attendee-list");
+  const checkedCountEl = document.getElementById("checked-count");
+  const totalCountEl = document.getElementById("total-count");
+  const dateEl = document.getElementById("visit-date");
+
+  dateEl.textContent = new Date().toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  });
+
+  function loadCheckedState() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveCheckedState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function updateSummary() {
+    const checked = listEl.querySelectorAll("input[type=checkbox]:checked").length;
+    checkedCountEl.textContent = checked;
+  }
+
+  function render() {
+    const state = loadCheckedState();
+    totalCountEl.textContent = ATTENDEES.length;
+    listEl.innerHTML = "";
+
+    ATTENDEES.forEach((name) => {
+      const li = document.createElement("li");
+      const isChecked = Boolean(state[name]);
+      if (isChecked) li.classList.add("checked");
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = isChecked;
+      checkbox.setAttribute("aria-label", `${name} 참석 확인`);
+      checkbox.addEventListener("change", () => {
+        const current = loadCheckedState();
+        current[name] = checkbox.checked;
+        saveCheckedState(current);
+        li.classList.toggle("checked", checkbox.checked);
+        updateSummary();
+      });
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "attendee-name";
+      nameSpan.textContent = name;
+
+      li.appendChild(nameSpan);
+      li.appendChild(checkbox);
+      listEl.appendChild(li);
+    });
+
+    updateSummary();
+  }
+
+  document.getElementById("btn-check-all").addEventListener("click", () => {
+    const state = {};
+    ATTENDEES.forEach((name) => (state[name] = true));
+    saveCheckedState(state);
+    render();
+  });
+
+  document.getElementById("btn-reset").addEventListener("click", () => {
+    localStorage.removeItem(STORAGE_KEY);
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>
